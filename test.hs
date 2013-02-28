@@ -6,6 +6,8 @@ import Data.ByteString (ByteString, concat)
 import qualified Data.ByteString as BS
 import Data.Either
 
+import Text.JSON
+
 main = do
 	conn <- Redis.connect Redis.defaultConnectInfo
 	Redis.runRedis conn $ do
@@ -23,3 +25,16 @@ parseWorkers = foldl (++) [] . map parse
 	parse (Right Nothing) = []
 
 parseWorker json = json
+
+data Worker = Worker {
+	job_class :: String
+} deriving (Show)
+
+makeWorker :: JSObject JSValue -> Result Worker
+makeWorker json = do
+	payload <- json ! "payload"
+	job_class <- payload ! "class"
+	return Worker {job_class = job_class}
+ where
+	(!) :: JSON a => JSObject JSValue -> String -> Result a
+	(!) = flip valFromObj
