@@ -9,23 +9,13 @@ import Data.Either
 import Text.JSON
 import Data.Maybe (isJust)
 
-
 data Worker = Worker {
-	worker_id :: String,
-	job_class :: String
+	workerId :: String,
+	jobClass :: String
 } deriving (Show)
 
-makeWorker :: ByteString -> JSObject JSValue -> Result Worker
-makeWorker wid js = do
-	payload <- js ! "payload"
-	job_class <- payload ! "class"
-	return Worker {worker_id = BS.unpack(wid), job_class = job_class}
- where
-	(!) :: JSON a => JSObject JSValue -> String -> Result a
-	(!) = flip valFromObj
-
-
-main = do
+allWorkers :: IO [Worker]
+allWorkers = do
 	conn <- Redis.connect Redis.defaultConnectInfo
 	Redis.runRedis conn $ do
 		redis_ids   <- Redis.smembers "resque:workers"
@@ -34,7 +24,7 @@ main = do
 		redis_jsons <- mapM getWorker worker_ids
 		let workers = parseWorkers $ zip worker_ids (map fromRedis redis_jsons)
 
-		liftIO $ print workers
+		return workers
  where
 	getWorker id = Redis.get $ BS.concat ["resque:worker:", id]
 	parseWorkers = map parse . filter (isJust . snd)
@@ -47,3 +37,12 @@ parseWorker wid = fromJSON . makeWorker wid . fromJSON . decode . BS.unpack
  where
 	fromJSON (Ok x) = x
 	fromJSON (Error e) = error ("JSON parsing failed: " ++ e)
+
+makeWorker :: ByteString -> JSObject JSValue -> Result Worker
+makeWorker wid js = do
+	payload <- js ! "payload"
+	job_class <- payload ! "class"
+	return Worker {workerId = BS.unpack wid, jobClass = job_class}
+ where
+	(!) :: JSON a => JSObject JSValue -> String -> Result a
+	(!) = flip valFromObj
