@@ -11,27 +11,25 @@ data Flag = RedisHost String
 	  | RedisPort Int
 
 data Options = Options
-  { optRedisHost :: String
-  , optRedisPort :: Int
-  } deriving Show
+  { optRedisInfo :: Redis.ConnectInfo
+  }
 
 defaultOptions :: Options
 defaultOptions = Options
-  { optRedisHost = "localhost"
-  , optRedisPort = 6379
+  { optRedisInfo = Redis.defaultConnectInfo
   }
 
 options :: [ OptDescr (Options -> IO Options) ]
 options =
     [ Option "h" ["host"]
 	(ReqArg
-	    (\arg opt -> return opt { optRedisHost = arg })
+	    (\arg opt -> return opt { optRedisInfo = (optRedisInfo opt) { Redis.connectHost = arg } })
 	    "HOST")
 	"Redis server host"
 
     , Option "p" ["port"]
 	(ReqArg
-	    (\arg opt -> return opt { optRedisPort = (read arg) })
+	    (\arg opt -> return opt { optRedisInfo = (optRedisInfo opt) { Redis.connectPort = redisPort arg } })
 	    "PORT")
 	"Redis server port"
 
@@ -43,18 +41,14 @@ options =
 		exitWith ExitSuccess))
 	"Show help"
     ]
+ where
+	redisPort = Redis.PortNumber . fromIntegral . read
 
 
 main = do
-    args <- getArgs
+	args <- getArgs
+	let (actions, nonOptions, errors) = getOpt RequireOrder options args
+	opts <- foldl (>>=) (return defaultOptions) actions
 
-    -- Parse options, getting a list of option actions
-    let (actions, nonOptions, errors) = getOpt RequireOrder options args
-
-    -- Here we thread startOptions through all supplied option actions
-    opts <- foldl (>>=) (return defaultOptions) actions
-
-    let Options { optRedisHost = host
-		, optRedisPort = port } = opts
-
-    print opts
+	workers <- myWorkers $ optRedisInfo opts
+	print workers

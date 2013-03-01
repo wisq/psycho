@@ -30,8 +30,8 @@ data Worker = Worker {
 	jobClass  :: String
 } deriving (Show)
 
-allWorkers :: IO [Worker]
-allWorkers = do
+allWorkers :: Redis.ConnectInfo -> IO [Worker]
+allWorkers connectInfo = do
 	conn <- Redis.connect Redis.defaultConnectInfo
 	Redis.runRedis conn $ do
 		redis_ids   <- Redis.smembers "resque:workers"
@@ -48,10 +48,10 @@ allWorkers = do
 	fromRedis (Right x) = x
 	fromRedis (Left _)  = error "Redis command failed"
 
-myWorkers :: IO [Worker]
-myWorkers = do
+myWorkers :: Redis.ConnectInfo -> IO [Worker]
+myWorkers connectInfo = do
 	host    <- getHostName
-	workers <- allWorkers
+	workers <- allWorkers connectInfo
 	return $ filter ((==) host . hostName) workers
 
 parseWorker :: ByteString -> ByteString -> Worker
