@@ -44,7 +44,7 @@ options =
 		(NoArg (\_ -> do
 		prg <- getProgName
 		hPutStrLn stderr (usageInfo prg options)
-		exitWith ExitSuccess))
+		exitSuccess))
 		"Show help"
 	]
  where
