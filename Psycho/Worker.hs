@@ -32,7 +32,7 @@ data Worker = Worker {
 
 allWorkers :: Redis.ConnectInfo -> IO [Worker]
 allWorkers connectInfo = do
-	conn <- Redis.connect Redis.defaultConnectInfo
+	conn <- Redis.connect connectInfo
 	Redis.runRedis conn $ do
 		redis_ids   <- Redis.smembers "resque:workers"
 		let worker_ids = fromRedis redis_ids
