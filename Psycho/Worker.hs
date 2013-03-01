@@ -1,17 +1,30 @@
 {-# LANGUAGE OverloadedStrings #-}
 
+module Psycho.Worker (
+	Worker,
+
+	hostName,
+	processId,
+	jobClass,
+
+	allWorkers
+) where
+
 import qualified Database.Redis as Redis
 import Control.Monad.IO.Class (liftIO)
 import Data.ByteString (ByteString, concat)
 import qualified Data.ByteString.Char8 as BS
-import Data.Either
+import Data.Either (Either)
 
 import Text.JSON
 import Data.Maybe (isJust)
 
+import Data.List.Split (splitOn)
+
 data Worker = Worker {
-	workerId :: String,
-	jobClass :: String
+	hostName  :: String,
+	processId :: Integer,
+	jobClass  :: String
 } deriving (Show)
 
 allWorkers :: IO [Worker]
@@ -36,13 +49,16 @@ parseWorker :: ByteString -> ByteString -> Worker
 parseWorker wid = fromJSON . makeWorker wid . fromJSON . decode . BS.unpack
  where
 	fromJSON (Ok x) = x
-	fromJSON (Error e) = error ("JSON parsing failed: " ++ e)
+	fromJSON (Error e) = error $ "JSON parsing failed: " ++ e
 
 makeWorker :: ByteString -> JSObject JSValue -> Result Worker
 makeWorker wid js = do
 	payload <- js ! "payload"
 	job_class <- payload ! "class"
-	return Worker {workerId = BS.unpack wid, jobClass = job_class}
+	return Worker {hostName = host, processId = pid, jobClass = job_class}
  where
 	(!) :: JSON a => JSObject JSValue -> String -> Result a
 	(!) = flip valFromObj
+	host = head splitWid
+	pid  = read $ splitWid !! 1
+	splitWid = splitOn ":" $ BS.unpack wid
