@@ -1,3 +1,3 @@
 import Psycho.Worker
 
-main = allWorkers >>= print
+main = myWorkers >>= print

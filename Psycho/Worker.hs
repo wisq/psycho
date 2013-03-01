@@ -7,7 +7,8 @@ module Psycho.Worker (
 	processId,
 	jobClass,
 
-	allWorkers
+	allWorkers,
+	myWorkers
 ) where
 
 import qualified Database.Redis as Redis
@@ -15,6 +16,8 @@ import Control.Monad.IO.Class (liftIO)
 import Data.ByteString (ByteString, concat)
 import qualified Data.ByteString.Char8 as BS
 import Data.Either (Either)
+
+import Network.BSD (getHostName)
 
 import Text.JSON
 import Data.Maybe (isJust)
@@ -44,6 +47,12 @@ allWorkers = do
 	parse (id, Just json) = parseWorker id json
 	fromRedis (Right x) = x
 	fromRedis (Left _)  = error "Redis command failed"
+
+myWorkers :: IO [Worker]
+myWorkers = do
+	host    <- getHostName
+	workers <- allWorkers
+	return $ filter ((==) host . hostName) workers
 
 parseWorker :: ByteString -> ByteString -> Worker
 parseWorker wid = fromJSON . makeWorker wid . fromJSON . decode . BS.unpack
