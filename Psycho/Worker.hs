@@ -24,10 +24,15 @@ import Data.Maybe (isJust)
 
 import Data.List.Split (splitOn)
 
+import System.Locale
+import Data.Time
+import Data.Time.Format
+
 data Worker = Worker {
 	hostName  :: String,
 	processId :: Integer,
-	jobClass  :: String
+	jobClass  :: String,
+	startTime :: UTCTime
 } deriving (Show)
 
 allWorkers :: Redis.ConnectInfo -> IO [Worker]
@@ -62,9 +67,15 @@ parseWorker wid = fromJSON . makeWorker wid . fromJSON . decode . BS.unpack
 
 makeWorker :: ByteString -> JSObject JSValue -> Result Worker
 makeWorker wid js = do
-	payload <- js ! "payload"
+	payload   <- js ! "payload"
+	run_at    <- js ! "run_at"
 	job_class <- payload ! "class"
-	return Worker {hostName = host, processId = pid, jobClass = job_class}
+	return Worker {
+		hostName  = host,
+		processId = pid,
+		jobClass  = job_class,
+		startTime = readTime defaultTimeLocale "%Y/%m/%d %H:%M:%S %Z" run_at
+	}
  where
 	(!) :: JSON a => JSObject JSValue -> String -> Result a
 	(!) = flip valFromObj
