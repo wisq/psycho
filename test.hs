@@ -7,44 +7,43 @@ import qualified Data.ByteString.Char8 as BS
 import Data.Either
 
 import Text.JSON
+import Data.Maybe (isJust)
 
 
 data Worker = Worker {
+	worker_id :: String,
 	job_class :: String
 } deriving (Show)
 
-instance JSON Worker where
-	readJSON json = do
-		obj <- readJSON json
-		payload <- obj ! "payload"
-		job_class <- payload ! "class"
-		return Worker {job_class = job_class}
-	    where
-		(!) :: JSON a => JSObject JSValue -> String -> Result a
-		(!) = flip valFromObj
-
-	showJSON = undefined
-
+makeWorker :: ByteString -> JSObject JSValue -> Result Worker
+makeWorker wid js = do
+	payload <- js ! "payload"
+	job_class <- payload ! "class"
+	return Worker {worker_id = BS.unpack(wid), job_class = job_class}
+ where
+	(!) :: JSON a => JSObject JSValue -> String -> Result a
+	(!) = flip valFromObj
 
 
 main = do
 	conn <- Redis.connect Redis.defaultConnectInfo
 	Redis.runRedis conn $ do
-		worker_ids   <- Redis.smembers "resque:workers"
-		worker_jsons <- sequence $ getWorkers worker_ids
-		let workers = parseWorkers worker_jsons
+		redis_ids   <- Redis.smembers "resque:workers"
+		let worker_ids = fromRedis redis_ids
+
+		redis_jsons <- mapM getWorker worker_ids
+		let workers = parseWorkers $ zip worker_ids (map fromRedis redis_jsons)
+
 		liftIO $ print workers
  where
-	getWorkers (Right ids)  = map getWorker ids
 	getWorker id = Redis.get $ BS.concat ["resque:worker:", id]
+	parseWorkers = map parse . filter (isJust . snd)
+	parse (id, Just json) = parseWorker id json
+	fromRedis (Right x) = x
+	fromRedis (Left _)  = error "Redis command failed"
 
-parseWorkers = foldl (++) [] . map parse
+parseWorker :: ByteString -> ByteString -> Worker
+parseWorker wid = fromJSON . makeWorker wid . fromJSON . decode . BS.unpack
  where
-	parse (Right (Just json)) = [parseWorker json]
-	parse (Right Nothing) = []
-
-parseWorker :: ByteString -> Worker
-parseWorker = fromOk . decode . BS.unpack
- where
-	fromOk (Ok x) = x
-	fromOk (Error e) = error ("JSON parsing failed: " ++ e)
+	fromJSON (Ok x) = x
+	fromJSON (Error e) = error ("JSON parsing failed: " ++ e)
