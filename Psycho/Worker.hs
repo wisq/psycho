@@ -30,7 +30,7 @@ import Data.Time.Format
 
 data Worker = Worker {
 	hostName  :: String,
-	processId :: Integer,
+	processId :: Int,
 	jobClass  :: String,
 	startTime :: UTCTime
 } deriving (Show)

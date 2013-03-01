@@ -1,4 +1,5 @@
 import Psycho.Worker
+import Psycho.Process
 
 import System.Console.GetOpt
 import System.Environment
@@ -6,6 +7,8 @@ import System.IO
 import System.Exit
 
 import qualified Database.Redis as Redis
+
+import Data.Maybe
 
 data Flag = RedisHost String
 	  | RedisPort Int
@@ -56,4 +59,5 @@ main = do
 	opts <- foldl (>>=) (return defaultOptions) actions
 
 	workers <- (if optAllHosts opts then allWorkers else myWorkers) $ optRedisInfo opts
-	print workers
+	subs <- mapM (getSubProcess . processId) workers
+	print $ catMaybes subs
